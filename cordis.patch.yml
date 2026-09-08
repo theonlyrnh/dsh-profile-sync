@@ -1,0 +1,7 @@
+# dsh-profile-sync bundle patch — applied after the web-app layer, before the user's
+# own cordis.patch.yml. Mounts the plugin's host row; it registers the
+# /api/sync HTTP endpoints and the `dsh-profile-sync` settings section.
+- insert:
+    - id: dsh-profile-sync
+      name: 'dsh-profile-sync'
+      inject: [webServer]

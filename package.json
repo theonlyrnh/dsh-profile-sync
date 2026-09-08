@@ -1,0 +1,67 @@
+{
+  "name": "dsh-profile-sync",
+  "version": "0.1.1",
+  "description": "DSH plugin: sync model settings, plugin manifests, patch layers and lockfiles across devices through a private Git repository (manual push/pull).",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "sync",
+    "git",
+    "multi-device"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "bin": {
+    "dsh-profile-sync": "lib/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  },
+  "dependencies": {
+    "isomorphic-git": "^1.25.0",
+    "js-yaml": "^4.1.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/schemastery": "^3.18.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theonlyrnh/dsh-profile-sync.git"
+  },
+  "homepage": "https://github.com/theonlyrnh/dsh-profile-sync#readme",
+  "bugs": {
+    "url": "https://github.com/theonlyrnh/dsh-profile-sync/issues"
+  }
+}
