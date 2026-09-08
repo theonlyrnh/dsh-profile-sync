@@ -15,7 +15,8 @@
 - **版本守卫**：`.sync-meta.yaml` 记录推送方 DSH 版本，设备间版本不一致时给出警告（不拦截）；
 - **双入口**：Web 设置页「配置同步」卡片 + CLI（`dsh-profile-sync push/pull/status`）；
 - **跨平台**：Windows / Linux / WSL2 统一逻辑，文本文件自动归一为 LF，避免 CRLF 噪声 diff；
-- **无外部依赖**：Git 传输内置 isomorphic-git，设备上**不需要安装 git**。
+- **SSH 公钥直连**：remote 填 `git@github.com:<用户名>/<私有仓库名>.git`（或 `ssh://` 链接）时直接用本机 SSH 公钥同步，**无需 Token**（走系统 git，需设备已装 git 并配好公钥）；
+- **无外部依赖（https 模式）**：https 远端的 Git 传输内置 isomorphic-git，设备上**不需要安装 git**。
 
 ## 同步范围
 
@@ -30,7 +31,9 @@
 
 - Node ≥ 18（DSH 自带）；
 - pnpm（`dsh plugin` 命令依赖）；
-- 一个**私有** Git 仓库（推荐 GitHub）＋ 访问令牌（见下文）。
+- 一个**私有** Git 仓库（推荐 GitHub），认证方式二选一：
+  - **SSH 公钥**（推荐，免 Token）：remote 填 `git@github.com:<用户名>/<私有仓库名>.git`，需要系统 `git` 与已添加到 GitHub 账号的 SSH 公钥；
+  - **访问令牌**：见下文第 1 步（https 远端不需要安装 git）。
 
 ## 安装
 
@@ -53,6 +56,8 @@ dsh plugin --profile web add github:<你的用户名>/dsh-profile-sync
 
 ### 1. 创建仓库访问令牌（GitHub）
 
+> **只用 SSH 公钥时可跳过本节与令牌配置**：remote 直接填 `git@github.com:<用户名>/<私有仓库名>.git`，认证交给本机 ssh-agent / `~/.ssh` 私钥（带密码短语的私钥请先 `ssh-add`；可用 `ssh -T git@github.com` 自检）。
+
 GitHub → Settings → Developer settings → Personal access tokens：
 
 - **Fine-grained token（推荐）**：只勾选你的私有仓库 → Repository permissions → `Contents: Read and write`；
@@ -64,7 +69,7 @@ GitHub → Settings → Developer settings → Personal access tokens：
 
 **方式 A：Web 设置页（推荐）**
 
-设置 → 配置同步 → 填写「仓库地址」（`https://github.com/<用户名>/<私有仓库名>.git`）→ 保存配置 → 粘贴令牌 → 保存 Token。
+设置 → 配置同步 → 填写「仓库地址」（`https://github.com/<用户名>/<私有仓库名>.git`，或 SSH 形式 `git@github.com:<用户名>/<私有仓库名>.git`）→ 保存配置 → 粘贴令牌 → 保存 Token（SSH 远端无需 Token，卡片会自动提示）。
 
 **方式 B：直接改文件**
 
@@ -89,7 +94,7 @@ dsh-profile-sync:
 ### 首次引导（一次性）
 
 1. 配置最全的设备先 `push`，仓库建立基线；
-2. 其他设备填好仓库地址与令牌后 `pull`：本地配置先备份再覆盖，插件自动安装；
+2. 其他设备填好仓库地址（SSH 或 https+Token）后 `pull`：本地配置先备份再覆盖，插件自动安装；
 3. 之后任何设备随时 push/pull，**无主从之分**。
 
 ### CLI
@@ -125,12 +130,14 @@ pnpm --dir "$env:USERPROFILE\.dsh\profiles\web" exec dsh-profile-sync push
 | settings.yaml 含敏感键被拒 | 按提示调整 `sensitiveKeyPatterns`，或把密钥移到凭据文件 |
 | 插件自动安装失败（ERR_PNPM_IGNORED_BUILDS） | 在 profile 目录执行 `pnpm approve-builds` 批准依赖构建脚本 |
 | 插件自动安装失败（MINIMUM_RELEASE_AGE） | 在 profile 目录执行 `pnpm config set minimumReleaseAge 0 --location project`，或等待新包过观察期 |
+| SSH 模式认证失败（Permission denied / publickey） | 确认公钥已添加到 GitHub 账号；带密码短语的私钥先 `ssh-add`；用 `ssh -T git@github.com` 自检 |
 | Web 卡片报 `"unauthorized" is not valid JSON` | 浏览器登录态失效：重新登录 DSH 页面后再操作 |
 | pull 后 dsh web 行为异常 | 重启 dsh web（运行中的服务不会热加载被覆盖的配置） |
 
 ## 安全说明
 
 - 同步令牌只存在各设备本机凭据文件，请求时经 HTTPS basic 使用，不写日志；
+- SSH 模式下认证完全由本机 ssh / git 完成：私钥不经过插件代码、不写入日志，更不会进仓库（首连 host key 按信任新主机处理）；
 - `/api/sync/*` 拒绝跨站请求（`sec-fetch-site: cross-site`），并与 DSH 自带认证门禁协同；
 - 仓库里只有 `apiKeyEnv: XXX` 这类**引用名**，密钥本体留在本机；
 - 若设备把 DSH 绑定到 0.0.0.0 且未装认证插件（如 dsh-auth-gate），`/api/sync/*` 将同网可达——请务必保留认证。
@@ -139,6 +146,7 @@ pnpm --dir "$env:USERPROFILE\.dsh\profiles\web" exec dsh-profile-sync push
 
 - v1 为手动同步；设置变更自动 push、按设备分支等属于二期；
 - 各设备 DSH 版本建议统一（当前约定 `0.1.2-rc.1`），不一致时只警告不拦截；
+- SSH / 本地路径远端依赖系统 `git` 命令；https 远端走内置 isomorphic-git，无此依赖；
 - 升级本插件：任一设备 `dsh plugin --profile <name> update dsh-profile-sync` 并 push 锁文件，其余设备 pull。
 
 ## 开发
